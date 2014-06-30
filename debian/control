@@ -1,0 +1,12 @@
+Source: perlhub-pkgbulder
+Section: perl
+Priority: optional
+Maintainer: Sergei Svistunov <sergei-svistunov@yandex.ru>
+Build-Depends: debhelper (>= 8)
+Build-Depends-Indep: perl
+Standards-Version: 3.9.4
+
+Package: perlhub-pkgbulder
+Architecture: amd64
+Depends: ${misc:Depends}, ${perl:Depends}, perl(>=5.9.3), pbuilder, debhelper, libqbit-perl, libwww-perl, libproc-daemon-perl
+Description: Package builder for PerlHub
