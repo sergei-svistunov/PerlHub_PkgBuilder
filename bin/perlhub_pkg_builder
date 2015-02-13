@@ -12,6 +12,7 @@ use File::Temp qw(tempdir);
 use File::Path qw(make_path remove_tree);
 use Archive::Tar;
 use Digest::MD5 qw(md5_hex);
+use Fcntl qw(:flock);
 
 my $PERLHUB_URL   = 'http://perlhub.ru';
 my $BASE_TGZ_PATH = '/var/cache/perlhub_pkg_builder';
@@ -114,8 +115,12 @@ exit(1) unless $base_tgzs_ok;
 
 @PIDS = ();
 
+my $MAIN_PID = $$;
+
 $SIG{'QUIT'} = $SIG{'KILL'} = $SIG{'TERM'} = sub {
-    kill('KILL', $_) foreach @PIDS;
+    if ($MAIN_PID == $$) {
+        kill('KILL', $_) foreach @PIDS;
+    }
 };
 
 for (1 .. $args{'workers'} || 4) {
@@ -163,6 +168,8 @@ for (1 .. $args{'workers'} || 4) {
                 $change_log =~ s/^([^\)]+\) )[^;]+(;.+)$/$1$task->{'series_name'}$2/m;
                 writefile('debian/changelog', $change_log);
 
+                open(my $fh_tgz_lock, '>', "$ARCH_SERIES_2_BASE_TGZ{$task->{'series_name'}, $task->{'build_arch_name'}}.lock") || throw "Cannot create lock file: $!";
+                flock($fh_tgz_lock, LOCK_EX) || throw "Cannot get exclusive lock: $!";
                 my $log = run_cmd(
                     '/usr/sbin/pbuilder',
                     [
@@ -171,7 +178,9 @@ for (1 .. $args{'workers'} || 4) {
                         '--buildplace' => $BASE_TGZ_PATH,
                     ]
                 );
+                flock($fh_tgz_lock, LOCK_UN) || throw "Cannot unlock: $!";
 
+                flock($fh_tgz_lock, LOCK_SH) || throw "Cannot get shared lock: $!";
                 $log .= run_cmd(
                     '/usr/bin/pdebuild',
                     [
@@ -183,6 +192,8 @@ for (1 .. $args{'workers'} || 4) {
                         '--allow-untrusted',
                     ]
                 );
+                flock($fh_tgz_lock, LOCK_UN) || throw "Cannot unlock: $!";
+                close($fh_tgz_lock);
 
                 my @files;
                 if (opendir(my $dh, "$task->{'build_dir'}/result")) {
