@@ -15,7 +15,7 @@ DIR=/var/run/perlhub_pkg_builder
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
 DAEMON=/usr/bin/perlhub_pkg_builder
-ARGS="--workers=3"
+ARGS="--workers=20"
 PIDFILE=$DIR/perlhub_pkg_builder.pid
 
 trap "" 1
